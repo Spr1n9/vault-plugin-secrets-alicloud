@@ -83,7 +83,6 @@ func (b *backend) operationConfigUpdate(ctx context.Context, req *logical.Reques
 	if regionIfc, ok := data.GetOk("region"); ok {
 		region = regionIfc.(string)
 	} else {
-		// return nil, errors.New("secret_key is required")
 		region = "cn-hangzhou"
 	}
 	entry, err := logical.StorageEntryJSON("config", credConfig{
@@ -113,6 +112,7 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 	return &logical.Response{
 		Data: map[string]interface{}{
 			"access_key": creds.AccessKey,
+			"region":     creds.Region,
 		},
 	}, nil
 }

@@ -62,10 +62,15 @@ func (b *backend) operationCredsRead(ctx context.Context, req *logical.Request, 
 		return nil, errors.New("unable to create secret because no credentials are configured")
 	}
 
+	region := "cn-hangzhou"
+	if creds.Region != "" {
+		region = creds.Region
+	}
+
 	switch role.Type() {
 
 	case roleTypeSTS:
-		client, err := clients.NewSTSClient(b.sdkConfig, creds.Region, creds.AccessKey, creds.SecretKey)
+		client, err := clients.NewSTSClient(b.sdkConfig, region, creds.AccessKey, creds.SecretKey)
 		if err != nil {
 			return nil, err
 		}
