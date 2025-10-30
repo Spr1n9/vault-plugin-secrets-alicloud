@@ -198,8 +198,12 @@ func (b *backend) operationRoleCreateUpdate(ctx context.Context, req *logical.Re
 
 	// Let's create a response that we're only going to return if there are warnings.
 	resp := &logical.Response{}
-	if role.Type() == roleTypeSTS && (role.TTL > 0 || role.MaxTTL > 0) {
-		resp.AddWarning("role_arn is set so ttl and max_ttl will be ignored because they're not editable on STS tokens")
+	// 这里调整了该检查，需要检查用户设置的ttl是否少于阿里云面板控制的最大时间12 小时
+	if role.Type() == roleTypeSTS && (role.TTL > 12*time.Hour || role.MaxTTL > 12*time.Hour) {
+		resp.AddWarning("role_arn is set so TTL and MaxTTL can't be set to values greater than 12 hours, cause Alicloud STS token max session duration is 12 hours")
+		resp.AddWarning("ttl and max_ttl will be set to 12 hours")
+		role.TTL = 12 * time.Hour
+		role.MaxTTL = 12 * time.Hour
 	}
 	if role.TTL > b.System().MaxLeaseTTL() {
 		resp.AddWarning(fmt.Sprintf("ttl of %d exceeds the system max ttl of %d, the latter will be used during login", role.TTL, b.System().MaxLeaseTTL()))

@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 
 	"github.com/hashicorp/vault-plugin-secrets-alicloud/clients"
@@ -40,6 +41,14 @@ func (b *backend) pathCreds() *framework.Path {
 }
 
 func (b *backend) operationCredsRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+
+	logger := hclog.New(&hclog.LoggerOptions{
+		Name:   "alicloud-creds",
+		Level:  hclog.Debug,
+		Output: hclog.DefaultOutput,
+	})
+	logger.Info("Debug here! req: ", req)
+
 	roleName := data.Get("name").(string)
 	if roleName == "" {
 		return nil, errors.New("name is required")
@@ -52,6 +61,11 @@ func (b *backend) operationCredsRead(ctx context.Context, req *logical.Request, 
 	if role == nil {
 		// Attempting to read a role that doesn't exist.
 		return nil, nil
+	}
+	expireDuration := role.TTL
+	if expireDuration == 0 {
+		// 如果角色没有设置TTL，默认使用阿里云最大会话时间12h
+		expireDuration = 12 * time.Hour
 	}
 
 	creds, err := readCredentials(ctx, req.Storage)
@@ -74,21 +88,25 @@ func (b *backend) operationCredsRead(ctx context.Context, req *logical.Request, 
 		if err != nil {
 			return nil, err
 		}
-		assumeRoleResp, err := client.AssumeRole(generateRoleSessionName(req.DisplayName, roleName), role.RoleARN)
+
+		assumeRoleResp, err := client.AssumeRole(generateRoleSessionName(req.DisplayName, roleName), role.RoleARN, expireDuration)
 		if err != nil {
 			return nil, err
 		}
+
 		// Parse the expiration into a time, so that when we return it from our API it's formatted
 		// the same way as how _we_ format times, which could differ from this over time.
 		expiration, err := time.Parse("2006-01-02T15:04:05Z", assumeRoleResp.Credentials.Expiration)
 		if err != nil {
 			return nil, err
 		}
+		fmt.Println("Debug here! expiration:", expiration)
 		resp := b.Secret(secretType).Response(map[string]interface{}{
 			"access_key":     assumeRoleResp.Credentials.AccessKeyId,
 			"secret_key":     assumeRoleResp.Credentials.AccessKeySecret,
 			"security_token": assumeRoleResp.Credentials.SecurityToken,
 			"expiration":     expiration,
+			"region":         region,
 		}, map[string]interface{}{
 			"role_type": roleTypeSTS.String(),
 		})

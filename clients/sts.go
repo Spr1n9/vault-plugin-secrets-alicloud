@@ -4,7 +4,10 @@
 package clients
 
 import (
+	"time"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk"
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/sts"
 )
 
@@ -27,9 +30,10 @@ type STSClient struct {
 	client *sts.Client
 }
 
-func (c *STSClient) AssumeRole(roleSessionName, roleARN string) (*sts.AssumeRoleResponse, error) {
+func (c *STSClient) AssumeRole(roleSessionName, roleARN string, expireDuration time.Duration) (*sts.AssumeRoleResponse, error) {
 	assumeRoleReq := sts.CreateAssumeRoleRequest()
 	assumeRoleReq.RoleArn = roleARN
 	assumeRoleReq.RoleSessionName = roleSessionName
+	assumeRoleReq.DurationSeconds = requests.NewInteger64(int64(expireDuration.Seconds()))
 	return c.client.AssumeRole(assumeRoleReq)
 }
